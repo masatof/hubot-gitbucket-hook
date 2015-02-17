@@ -14,13 +14,7 @@ codec = (data) ->
   tmp = data.split('"')
   tmp[tmp.length-2]
 
-module.exports = (robot) ->
-  robot.router.post "/gitbucket-webhook", (req, res) ->
-    hook = req.body
-    datalist = hook.payload.split(",")
-
-    console.log datalist
-
+codec_default_webhook = (datalist) ->
     pusher = "@" + codec(datalist[0])
     ref = codec(datalist[2]).split('/')[2]
     message = codec(datalist[4])
@@ -31,7 +25,29 @@ module.exports = (robot) ->
     else
       repository = codec(datalist[21])
 
-    msg = "#{pusher} pushed to #{ref} at #{repository}:\n\n#{message}"
+    "#{pusher} pushed to #{ref} at #{repository}:\n\n#{message}"
 
-    robot.send "Lobby", msg
+module.exports = (robot) ->
+  robot.router.post "/gitbucket-webhook", (req, res) ->
+    users = ['fukuyama']
+
+    hook = req.body
+    datalist = hook.payload.split(",")
+
+    console.log datalist
+
+    if datalist.length >= 20
+      robot.send "Lobby", codec_default_webhook(datalist)
+    else
+      owner = codec(datalist[0])
+      name = codec(datalist[1])
+      issueId = datalist[2].split(':')[1].split(',')[0]
+      content = codec(datalist[3])
+      msg = "#{name} ##{issueId} @#{owner}\n\n#{content}"
+      robot.send "Lobby", msg
+      for user in users
+        if content.indexOf(user) isnt -1
+          robot.send {room: "#" + user}, msg
+
     res.end ''
+
